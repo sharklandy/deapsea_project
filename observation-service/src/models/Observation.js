@@ -1,81 +1,68 @@
-// ============================================
-// MODÈLE MONGOOSE: OBSERVATION (Observations marines)
-// ============================================
-// Observations d'espèces marines créées par les utilisateurs
-// Système de validation par EXPERT/ADMIN + soft delete pour audit
-
+// modèle pour les observations marines
 const mongoose = require('mongoose');
 
 const ObservationSchema = new mongoose.Schema({
-  // ===== RÉFÉRENCES =====
+  // références vers espèce et auteur
   speciesId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Species',   // Référence au modèle Species pour peupler les données
-    required: true    // Obligatoire: chaque observation doit être liée à une espèce
+    ref: 'Species',
+    required: true
   },
   
   authorId: { 
-    type: mongoose.Schema.Types.ObjectId,  // ID de l'utilisateur créateur
-    required: true                          // Obligatoire pour tracer l'auteur
+    type: mongoose.Schema.Types.ObjectId,
+    required: true
   },
   
-  // ===== DONNÉES DE L'OBSERVATION =====
+  // détails de l'observation
   description: { 
     type: String, 
-    required: true    // Description obligatoire de l'observation
+    required: true
   },
   
   dangerLevel: { 
     type: Number, 
-    min: 1,           // Niveau minimum de dangerosité
-    max: 5            // Niveau maximum (1 = inoffensif, 5 = très dangereux)
+    min: 1,
+    max: 5
   },
   
-  // ===== SYSTÈME DE VALIDATION (3 états) =====
+  // statut de validation
   status: { 
     type: String, 
-    enum: ['PENDING','VALIDATED','REJECTED'],  // Seulement ces 3 valeurs possibles
-    default: 'PENDING'                         // Par défaut: en attente de validation
-    // PENDING: Nouvelle observation, pas encore vérifiée
-    // VALIDATED: Approuvée par EXPERT/ADMIN (+3 réputation auteur)
-    // REJECTED: Refusée par EXPERT/ADMIN (-1 réputation auteur)
+    enum: ['PENDING','VALIDATED','REJECTED'],
+    default: 'PENDING'
   },
   
   validatedBy: { 
     type: mongoose.Schema.Types.ObjectId, 
-    default: null     // ID du validateur (EXPERT/ADMIN), null si PENDING
+    default: null
   },
   
   validatedAt: { 
     type: Date, 
-    default: null     // Date de validation, null si PENDING
+    default: null
   },
   
-  // ===== SOFT DELETE SYSTEM (Suppression logique) =====
-  // Permet de "supprimer" sans perdre les données historiques
+  // système de soft delete
   deleted: { 
     type: Boolean, 
     default: false
-    // false = visible dans l'application
-    // true = masquée mais présente en base de données
   },
   
   deletedAt: { 
     type: Date, 
-    default: null     // Date de suppression, null si non supprimée
+    default: null
   },
   
   deletedBy: { 
     type: mongoose.Schema.Types.ObjectId, 
-    default: null     // ID de l'administrateur qui a supprimé, null si non supprimée
+    default: null
   },
   
-  // ===== MÉTADONNÉES =====
   createdAt: { 
     type: Date, 
-    default: Date.now  // Date de création de l'observation
+    default: Date.now
   }
 });
 
-// Export du modèle
 module.exports = mongoose.model('Observation', ObservationSchema);
