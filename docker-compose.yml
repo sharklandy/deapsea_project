@@ -1,0 +1,86 @@
+# ============================================
+# DOCKER COMPOSE: DeepSea Project
+# ============================================
+# Architecture multi-services pour l'application DeepSea
+# 
+# SERVICES:
+# - mongo: Base de données MongoDB partagée entre tous les services
+# - auth-service: Gestion de l'authentification et de la réputation (port 4000)
+# - observation-service: CRUD observations + validation + modération (port 5000)
+# - taxonomy-service: Statistiques et classification taxonomique (port 6000)
+#
+# COMMUNICATION INTER-SERVICES:
+# - taxonomy-service → observation-service (HTTP via axios)
+# - observation-service → auth-service (HTTP pour réputation)
+# - Tous les services → mongo (connexion MongoDB)
+
+version: '3.8'
+
+services:
+  # ============================================
+  # SERVICE: MongoDB
+  # ============================================
+  # Base de données NoSQL partagée par tous les microservices
+  # Expose le port 27017 (interne) sur le port 27018 (hôte)
+  mongo:
+    image: mongo:6                    # Image officielle MongoDB version 6
+    restart: unless-stopped           # Redémarre automatiquement sauf si arrêt manuel
+    ports:
+      - "27018:27017"                 # Mapping: hôte:27018 → conteneur:27017
+                                      # Port 27018 pour éviter conflit avec MongoDB local
+    volumes:
+      - mongo-data:/data/db           # Persistance des données sur le volume nommé
+
+  # ============================================
+  # SERVICE: Auth Service
+  # ============================================
+  # Microservice d'authentification
+  # Gère: inscription, connexion, profil utilisateur, système de réputation
+  auth-service:
+    build: ./auth-service             # Construit l'image depuis le Dockerfile local
+    env_file: ./auth-service/.env     # Charge les variables d'environnement depuis .env
+                                      # Contient: MONGO_URI, JWT_SECRET, PORT
+    ports:
+      - "4000:4000"                   # Expose le port 4000 (API REST)
+    depends_on:
+      - mongo                         # Démarre APRÈS mongo pour garantir la connectivité
+
+  # ============================================
+  # SERVICE: Observation Service
+  # ============================================
+  # Microservice de gestion des observations
+  # Gère: CRUD observations, validation/rejet, soft delete, ActionHistory
+  observation-service:
+    build: ./observation-service      # Construit l'image depuis le Dockerfile local
+    env_file: ./observation-service/.env  # Charge les variables d'environnement
+                                          # Contient: MONGO_URI, AUTH_SERVICE_URL, JWT_SECRET, PORT
+    ports:
+      - "5000:5000"                   # Expose le port 5000 (API REST)
+    depends_on:
+      - mongo                         # Dépend de mongo pour la base de données
+
+  # ============================================
+  # SERVICE: Taxonomy Service
+  # ============================================
+  # Microservice de classification taxonomique
+  # Gère: statistiques globales, extraction de mots-clés, hiérarchie de classification
+  taxonomy-service:
+    build: ./taxonomy-service         # Construit l'image depuis le Dockerfile local
+    ports:
+      - "6000:6000"                   # Expose le port 6000 (API REST)
+    environment:
+      # Variables d'environnement inline (pas de fichier .env pour ce service)
+      - MONGO_URI=mongodb://mongo:27017/taxonomy-db  # URI MongoDB avec nom de base
+      - OBSERVATION_SERVICE_URL=http://observation-service:5000  # URL inter-services
+      - JWT_SECRET=dev_secret         # Secret JWT partagé avec auth-service
+    depends_on:
+      - mongo                         # Dépend de mongo pour la base de données
+      - observation-service           # Dépend de observation-service pour les appels HTTP
+
+# ============================================
+# VOLUMES: Persistance des données
+# ============================================
+# Volume nommé pour stocker les données MongoDB
+# Garantit que les données survivent aux redémarrages des conteneurs
+volumes:
+  mongo-data:                         # Volume pour /data/db de MongoDB
