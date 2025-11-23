@@ -44,9 +44,15 @@ SpeciesSchema.methods.updateRarityScore = async function() {
   });
   
   // calculer le nouveau score
-  this.rarityScore = 1 + (validatedCount / 5);
-  await this.save();
+  const newScore = 1 + (validatedCount / 5);
   
+  // mettre à jour uniquement le rarityScore sans déclencher la validation complète
+  await this.constructor.updateOne(
+    { _id: this._id },
+    { $set: { rarityScore: newScore } }
+  );
+  
+  this.rarityScore = newScore;
   return this.rarityScore;
 };
 

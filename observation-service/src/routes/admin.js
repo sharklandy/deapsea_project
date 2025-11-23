@@ -167,4 +167,34 @@ router.get('/user/:id/history', auth, isAdmin, async (req, res) => {
   }
 });
 
+// ============================================
+// ROUTE GET: Historique global de toutes les actions
+// ============================================
+// Réservé aux ADMIN uniquement
+// Retourne toutes les actions de modération du système
+router.get('/history', auth, isAdmin, async (req, res) => {
+  try {
+    // Récupérer toutes les actions avec pagination optionnelle
+    const limit = parseInt(req.query.limit) || 100;
+    const skip = parseInt(req.query.skip) || 0;
+    
+    const history = await ActionHistory.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
+    
+    const totalActions = await ActionHistory.countDocuments();
+    
+    res.json({
+      totalActions,
+      limit,
+      skip,
+      actions: history
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 module.exports = router;
