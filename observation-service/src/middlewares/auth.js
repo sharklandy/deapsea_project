@@ -1,8 +1,7 @@
+// middleware pour vérifier le token jwt
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
 
-// This middleware verifies JWT using the same secret as auth-service.
-// For production you'd prefer token introspection or an auth gateway.
 module.exports = function(req, res, next) {
   const h = req.headers.authorization;
   if (!h) return res.status(401).json({ message: 'En-tête Authorization manquant' });

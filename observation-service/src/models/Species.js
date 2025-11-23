@@ -1,79 +1,59 @@
-// ============================================
-// MODÈLE MONGOOSE: SPECIES (Espèces marines)
-// ============================================
-// Catalogue des espèces observables dans les profondeurs océaniques
-// Système de rareté basé sur le nombre d'observations validées
-
+// modèle pour les espèces marines
 const mongoose = require('mongoose');
 
 const SpeciesSchema = new mongoose.Schema({
-  // ===== CRÉATION =====
+  // qui a créé l'espèce
   authorId: { 
-    type: mongoose.Schema.Types.ObjectId,  // Référence à l'ID d'un utilisateur
-    required: true                          // Obligatoire pour tracer qui a créé l'espèce
+    type: mongoose.Schema.Types.ObjectId,
+    required: true
   },
   
-  // ===== INFORMATIONS DE L'ESPÈCE =====
+  // infos de l'espèce
   name: { 
     type: String, 
     required: true, 
-    unique: true       // Chaque espèce doit avoir un nom unique
+    unique: true
   },
   
   description: { 
     type: String, 
     required: true,
-    minlength: 10      // Minimum 10 caractères pour éviter les descriptions trop courtes
+    minlength: 10
   },
   
-  // ===== SYSTÈME DE RARETÉ (Gamification) =====
+  // score de rareté basé sur les observations
   rarityScore: { 
     type: Number, 
     default: 1
-    // Score calculé dynamiquement selon la formule:
-    // rarityScore = 1 + (nombre_observations_validées / 5)
-    // 
-    // Exemples:
-    // - 0 observations validées → score = 1.0 (rare)
-    // - 5 observations validées → score = 2.0 (peu commune)
-    // - 10 observations validées → score = 3.0 (commune)
-    // - 25 observations validées → score = 6.0 (très commune)
   },
   
-  // ===== MÉTADONNÉES =====
   createdAt: { 
     type: Date, 
-    default: Date.now  // Date de création de l'espèce dans le système
+    default: Date.now
   }
 });
 
-// ============================================
-// MÉTHODE PERSONNALISÉE: updateRarityScore()
-// ============================================
-// Calcule et met à jour le score de rareté en fonction des observations validées
-// Cette méthode est appelée après chaque validation d'observation
+// mettre à jour le score de rareté
 SpeciesSchema.methods.updateRarityScore = async function() {
-  // 1. IMPORT DYNAMIQUE pour éviter les dépendances circulaires
   const Observation = require('./Observation');
   
-  // 2. COMPTAGE DES OBSERVATIONS VALIDÉES
-  // Compte uniquement les observations avec status = 'VALIDATED'
+  // compter les observations validées
   const validatedCount = await Observation.countDocuments({
-    speciesId: this._id,      // Observations de cette espèce uniquement
-    status: 'VALIDATED'       // Uniquement celles validées par un EXPERT/ADMIN
+    speciesId: this._id,
+    status: 'VALIDATED'
   });
   
-  // 3. CALCUL DU SCORE DE RARETÉ
-  // Formule: rarityScore = 1 + (validatedCount / 5)
-  // Division par 5 pour graduer la progression
-  this.rarityScore = 1 + (validatedCount / 5);
+  // calculer le nouveau score
+  const newScore = 1 + (validatedCount / 5);
   
-  // 4. SAUVEGARDE EN BASE
-  await this.save();
+  // mettre à jour uniquement le rarityScore sans déclencher la validation complète
+  await this.constructor.updateOne(
+    { _id: this._id },
+    { $set: { rarityScore: newScore } }
+  );
   
-  // 5. RETOUR DU NOUVEAU SCORE
+  this.rarityScore = newScore;
   return this.rarityScore;
 };
 
-// Export du modèle
 module.exports = mongoose.model('Species', SpeciesSchema);
